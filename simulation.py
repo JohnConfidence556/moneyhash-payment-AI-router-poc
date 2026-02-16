@@ -45,8 +45,8 @@ with col2:
         }
         
         try:
-            # Connect to live Dockerized FastAPI
-            response = requests.post("http://localhost:8000/v1/predict/route", json=payload)
+            
+            response = requests.post("https://moneyhash-payment-ai-router-poc.onrender.com/v1/predict/route", json=payload)
             
             if response.status_code == 200:
                 res = response.json()
