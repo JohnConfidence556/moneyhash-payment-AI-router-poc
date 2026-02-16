@@ -1,9 +1,23 @@
 import os
 import joblib
 import pandas as pd
+import logging 
+from datetime import datetime 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import uvicorn
+
+# MONITORING & LOGGING SETUP
+# This creates a file named 'prediction_audit.log' in your container
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(message)s',
+    handlers=[
+        logging.FileHandler("prediction_audit.log"), # Saves to file
+        logging.StreamHandler() # Also prints to Render/Docker logs
+    ]
+)
+logger = logging.getLogger("MoneyHashRouter")
 
 # Using relative paths is crucial for Docker and Cloud hosting
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,9 +41,9 @@ class PaymentTransaction(BaseModel):
 # We load this once at startup to save memory and reduce latency
 try:
     predictive_router = joblib.load(MODEL_PATH)
-    print("Model loaded successfully from app/models/")
+    logger.info("✅ Model loaded successfully from app/models/")
 except Exception as e:
-    print(f"Critical Error: Could not load model. {e}")
+    logger.error(f"❌ Critical Error: Could not load model. {e}")
     predictive_router = None
 
 @app.get("/health")
@@ -42,26 +56,41 @@ def health_check():
 @app.post("/v1/predict/route")
 async def predict_route(transaction: PaymentTransaction):
     if not predictive_router:
+        logger.warning("Attempted prediction while model was unavailable.")
         raise HTTPException(status_code=503, detail="Model is currently unavailable")
 
     try:
         # Convert Pydantic object to DataFrame for the Scikit-learn Pipeline
-        input_df = pd.DataFrame([transaction.dict()])
+        input_data = transaction.dict()
+        input_df = pd.DataFrame([input_data])
         
         # Binary prediction (1 = Success, 0 = Failure)
         prediction = int(predictive_router.predict(input_df)[0])
         
-        # Confidence score (Probability of the chosen class)
+        # Confidence score
         probabilities = predictive_router.predict_proba(input_df)[0]
         confidence = float(max(probabilities))
+
+        recommendation = "PROCEED" if prediction == 1 else "TRIGGER_FALLBACK"
+
+        # AUDIT LOGGING
+        # We log the input and output so we can monitor performance
+        log_payload = {
+            "event": "PREDICTION_MADE",
+            "transaction": input_data,
+            "result": recommendation,
+            "confidence": round(confidence, 4)
+        }
+        logger.info(f"AUDIT: {log_payload}")
 
         return {
             "prediction_status": "SUCCESS" if prediction == 1 else "FAILURE_RISK",
             "confidence_score": round(confidence, 4),
-            "recommendation": "PROCEED" if prediction == 1 else "TRIGGER_FALLBACK",
+            "recommendation": recommendation,
             "provider_hint": "Optimized by XGBoost for current hour/amount"
         }
     except Exception as e:
+        logger.error(f"Inference error for transaction: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Inference error: {str(e)}")
 
 if __name__ == "__main__":
