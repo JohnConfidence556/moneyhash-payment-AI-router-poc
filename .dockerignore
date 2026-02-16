@@ -1,0 +1,10 @@
+.venv/
+venv/
+.git/
+.gitignore
+notebooks/
+data/
+*.ipynb
+__pycache__/
+Dockerfile
+.dockerignore

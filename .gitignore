@@ -1,0 +1,19 @@
+# Environments
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Data & Models (Large files)
+data/*.csv
+!data/financial_data_sample.csv  # Keep a small sample if needed
+*.pkl
+temp_model.json
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
