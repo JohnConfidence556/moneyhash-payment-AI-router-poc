@@ -7,7 +7,7 @@ import uvicorn
 
 # Using relative paths is crucial for Docker and Cloud hosting
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "models", "moneyhash_router_v1.pkl")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "moneyhash_router_v1.pkl")
 
 app = FastAPI(
     title="MoneyHash Predictive Routing API",
